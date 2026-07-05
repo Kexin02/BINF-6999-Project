@@ -16,6 +16,9 @@ library(ggplot2)
 library(uwot)
 library(cluster)
 library(pheatmap)
+library(randomForest)
+library(caret)
+library(ggpubr)
 
 set.seed(929) # Ensure reproducibility of the analysis results
 ```
@@ -522,6 +525,7 @@ ggplot(
   )
 ```
 
+13. Association between Allen subclasses and anatomical substructures
 ```{r}
 subclass_table <- table(
   pca_df$anatomical_substructure,
@@ -537,7 +541,8 @@ chisq.test(
 )
 ```
 
-```{r}
+13.1 Standardized residual analysis
+```{r, fig.width=7, fig.height=5}
 chi_subclass <- chisq.test(
     subclass_table,
     simulate.p.value = TRUE
@@ -554,3 +559,184 @@ pheatmap(
     display_numbers = TRUE
 )
 ```
+
+14. Statistical comparison of PCA coordinates across anatomical substructures
+```{r}
+# Test whether PCA coordinates differ among SCs anatomical substructures.
+# This evaluates whether transcriptomic variation is associated with anatomy.
+
+pcs_to_test <- c("PC1", "PC2", "PC3", "PC4")
+
+# Kruskal-Wallis tests for PC1-PC4
+kruskal_results <- data.frame()
+
+for (pc in pcs_to_test) {
+  
+  test_formula <- as.formula(
+    paste(pc, "~ anatomical_substructure")
+  )
+  
+  test_res <- kruskal.test(
+    test_formula,
+    data = pca_df
+  )
+  
+  kruskal_results <- rbind(
+    kruskal_results,
+    data.frame(
+      PC = pc,
+      statistic = test_res$statistic,
+      df = test_res$parameter,
+      p_value = test_res$p.value
+    )
+  )
+}
+
+kruskal_results
+
+# Pairwise Wilcoxon tests for each PC
+pairwise_results <- list()
+
+for (pc in pcs_to_test) {
+  
+  pairwise_results[[pc]] <- pairwise.wilcox.test(
+    pca_df[[pc]],
+    pca_df$anatomical_substructure,
+    p.adjust.method = "BH"
+  )
+}
+
+pairwise_results
+
+comparisons <- list(
+  c("SCop", "SCsg"),
+  c("SCop", "SCzo"),
+  c("SCsg", "SCzo")
+)
+
+# Visualize PC1 distribution across anatomical substructures.
+# PC1 mainly separates SCop from the other two substructures.
+
+ggplot(
+  pca_df,
+  aes(x = anatomical_substructure,
+      y = PC1,
+      fill = anatomical_substructure)
+) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.2, size = 1, alpha = 0.4) +
+  stat_compare_means(
+    comparisons = list(
+      c("SCop","SCsg"),
+      c("SCop","SCzo")
+    ),
+    method = "wilcox.test",
+    label = "p.signif"
+  ) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "PC1 distribution across SCs anatomical substructures",
+    x = "Anatomical substructure",
+    y = "PC1 score"
+  ) +
+  guides(fill = "none")
+
+# Visualize PC2 distribution across anatomical substructures.
+# PC2 captures additional variation among the three substructures.
+
+ggplot(
+  pca_df,
+  aes(x = anatomical_substructure,
+      y = PC2,
+      fill = anatomical_substructure)
+) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.2, size = 1, alpha = 0.4) +
+  stat_compare_means(
+    comparisons = comparisons,
+    method = "wilcox.test",
+    label = "p.signif"
+  ) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "PC2 distribution across SCs anatomical substructures",
+    x = "Anatomical substructure",
+    y = "PC2 score"
+  ) +
+  guides(fill = "none")
+```
+
+15. Random forest classification of anatomical substructure
+```{r}
+# Prepare input expression matrix and labels.
+# Rows are cells and columns are genes.
+rf_x <- as.data.frame(expr_mat_clean)
+rf_y <- as.factor(pca_df$anatomical_substructure)
+
+# Split data into training and testing sets.
+train_index <- createDataPartition(rf_y, p = 0.7, list = FALSE)
+
+x_train <- rf_x[train_index, ]
+x_test <- rf_x[-train_index, ]
+
+y_train <- rf_y[train_index]
+y_test <- rf_y[-train_index]
+
+# Train random forest classifier.
+rf_model <- randomForest(
+  x = x_train,
+  y = y_train,
+  ntree = 500,
+  importance = TRUE
+)
+
+rf_model
+
+# Predict anatomical substructure for test cells.
+rf_pred <- predict(rf_model, x_test)
+
+# Confusion matrix shows how well expression predicts anatomy.
+confusionMatrix(rf_pred, y_test)
+
+# Extract top genes important for predicting anatomical substructure.
+
+importance_df <- as.data.frame(importance(rf_model))
+importance_df$gene <- rownames(importance_df)
+
+top_rf_genes <- importance_df %>%
+  arrange(desc(MeanDecreaseGini)) %>%
+  slice(1:20)
+
+top_rf_genes
+
+ggplot(top_rf_genes, aes(x = reorder(gene, MeanDecreaseGini), y = MeanDecreaseGini)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "Top genes predicting SCs anatomical substructure",
+    x = "Gene",
+    y = "Mean decrease in Gini"
+  )
+```
+
+16. Summary of SCs anatomical substructure analysis
+```{r}
+# Summarize cell number, neurotransmitter composition,
+# and mean PCA coordinates for each anatomical substructure.
+
+scs_summary <- pca_df %>%
+  group_by(anatomical_substructure) %>%
+  summarise(
+    n_cells = n(),
+    mean_PC1 = mean(PC1),
+    mean_PC2 = mean(PC2),
+    mean_PC3 = mean(PC3),
+    percent_GABA = mean(neurotransmitter == "GABA") * 100,
+    percent_Glut = mean(neurotransmitter == "Glut") * 100
+  )
+
+scs_summary
+```
+
+
