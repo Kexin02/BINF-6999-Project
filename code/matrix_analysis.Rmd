@@ -1,0 +1,556 @@
+---
+title: "matrix_analysis"
+author: "Kexin Gong"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+0. Load required libraries and set a random seed
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(uwot)
+library(cluster)
+library(pheatmap)
+
+set.seed(929) # Ensure reproducibility of the analysis results
+```
+
+1. Import data
+```{r}
+expr_df <- read.csv("/Users/kexin/Desktop/project/data/SCs_32_matrix.csv", check.names = FALSE)
+
+dim(expr_df)
+head(expr_df[, 1:6])
+
+cell_labels <- expr_df$cell_label
+```
+
+2. Prepare expression matrix
+```{r}
+expr_mat <- expr_df %>% select(-cell_label)
+
+# remove Blank probes
+expr_mat <- expr_mat %>% select(!starts_with("Blank"))
+
+# remove genes with NA
+expr_mat <- expr_mat[, colSums(is.na(expr_mat)) == 0]
+
+# remove zero-variance genes
+gene_var <- apply(expr_mat, 2, var)
+expr_mat_clean <- expr_mat[, gene_var > 0]
+
+dim(expr_mat_clean)
+```
+
+3. Basic QC
+```{r, fig.width=6, fig.height=4.5}
+# Calculate basic quality control metrics for each cell
+qc_df <- data.frame(
+  cell_label = cell_labels,
+  detected_genes = rowSums(expr_mat_clean > 0), # Number of genes detected per cell
+  total_expression = rowSums(expr_mat_clean) # Total log2 expression per cell
+)
+
+# Plot the distribution of detected genes per cell
+ggplot(qc_df, aes(x = detected_genes)) +
+  geom_histogram(bins = 30) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "Detected genes per cell",
+    x = "Number of detected genes",
+    y = "Cell count"
+  )
+
+# ggsave(filename = "/Users/kexin/Desktop/BINF-6999-Project/figures/SCs/detected_genes_per_cell.png", width = 6, height = 5, dpi = 300)
+
+# Plot the distribution of total expression per cell
+ggplot(qc_df, aes(x = total_expression)) +
+  geom_histogram(bins = 30) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "Total log2 expression per cell",
+    x = "Total expression",
+    y = "Cell count"
+  )
+
+# ggsave(filename = "/Users/kexin/Desktop/BINF-6999-Project/figures/SCs/total_expression_per_cell.png", width = 6, height = 5, dpi = 300)
+
+```
+
+4. PCA
+```{r, fig.width=6, fig.height=5}
+# Perform PCA on the cleaned expression matrix with centering and scaling
+pca_res <- prcomp(expr_mat_clean, center = TRUE, scale. = TRUE)
+
+# Convert PCA scores to a data frame and retain cell labels
+pca_df <- as.data.frame(pca_res$x)
+pca_df$cell_label <- cell_labels
+
+# Calculate the percentage of variance explained by each principal component 
+# and the cumulative variance explained
+var_explained <- summary(pca_res)$importance[2, ] * 100
+cum_var <- cumsum(var_explained)
+
+# Generate axis labels showing the variance explained by PC1 and PC2
+pc1_lab <- paste0("PC1 (", round(var_explained[1], 1), "%)")
+pc2_lab <- paste0("PC2 (", round(var_explained[2], 1), "%)")
+
+# Visualize cell distribution along the first two principal components
+ggplot(pca_df, aes(x = PC1, y = PC2)) +
+  geom_point(size = 3, alpha = 0.85) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "PCA of SCs cells, section 32",
+    x = pc1_lab,
+    y = pc2_lab
+  )
+# ggsave(filename = "/Users/kexin/Desktop/BINF-6999-Project/figures/SCs/pca_scs_32.png", width = 6, height = 5, dpi = 300)
+
+# Create a data frame containing PCA variance statistics
+scree_df <- data.frame(
+  PC_number = seq_along(var_explained),
+  Variance = var_explained,
+  Cumulative = cum_var
+)
+
+# Visualize the variance explained by the first 30 principal components
+ggplot(scree_df[1:30, ], aes(x = PC_number, y = Variance)) +
+  geom_point(size = 2) +
+  geom_line() +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "Scree plot of PCA",
+    x = "Principal component",
+    y = "Variance explained (%)"
+  )
+# ggsave(filename = "/Users/kexin/Desktop/BINF-6999-Project/figures/SCs/pca_scree_32.png", width = 6, height = 5, dpi = 300)
+
+# Visualize the cumulative variance explained by the first 30 principal components
+ggplot(scree_df[1:30, ], aes(x = PC_number, y = Cumulative)) +
+  geom_point(size = 2) +
+  geom_line() +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "Cumulative variance explained by PCs",
+    x = "Principal component",
+    y = "Cumulative variance explained (%)"
+  )
+# ggsave(filename = "/Users/kexin/Desktop/BINF-6999-Project/figures/SCs/pca_cumulative_variance.png", width = 6, height = 5, dpi = 300)
+```
+
+5. Explore additional PCA dimensions
+```{r, fig.width=6, fig.height=5}
+ggplot(pca_df, aes(x = PC1, y = PC3)) +
+  geom_point(size = 2.5, alpha = 0.75) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "PCA of SCs cells, section 32",
+    subtitle = "PC1 vs PC3",
+    x = paste0("PC1 (", round(var_explained[1], 1), "%)"),
+    y = paste0("PC3 (", round(var_explained[3], 1), "%)")
+  )
+
+ggplot(pca_df, aes(x = PC2, y = PC3)) +
+  geom_point(size = 2.5, alpha = 0.75) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "PCA of SCs cells, section 32",
+    subtitle = "PC2 vs PC3",
+    x = paste0("PC2 (", round(var_explained[2], 1), "%)"),
+    y = paste0("PC3 (", round(var_explained[3], 1), "%)")
+  )
+
+ggplot(pca_df, aes(x = PC1, y = PC4)) +
+  geom_point(size = 2.5, alpha = 0.75) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "PCA of SCs cells, section 32",
+    subtitle = "PC1 vs PC4",
+    x = paste0("PC1 (", round(var_explained[1], 1), "%)"),
+    y = paste0("PC4 (", round(var_explained[4], 1), "%)")
+  )
+
+ggplot(pca_df, aes(x = PC2, y = PC4)) +
+  geom_point(size = 2.5, alpha = 0.75) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "PCA of SCs cells, section 32",
+    subtitle = "PC2 vs PC4",
+    x = paste0("PC2 (", round(var_explained[2], 1), "%)"),
+    y = paste0("PC4 (", round(var_explained[4], 1), "%)")
+  )
+```
+6. Principal component loading analysis
+```{r}
+# Extract PCA loading matrix.
+# Each loading represents the contribution of a gene to a principal component.
+
+loadings <- as.data.frame(pca_res$rotation)
+head(loadings)
+```
+
+6.1 PC1
+```{r}
+# Top positive genes contributing to PC1
+
+pc1_positive <- loadings %>%
+  rownames_to_column("gene") %>%
+  arrange(desc(PC1)) %>%
+  slice(1:20)
+
+pc1_positive
+
+# Top positive genes contributing to PC1
+
+pc1_positive <- loadings %>%
+  rownames_to_column("gene") %>%
+  arrange(desc(PC1)) %>%
+  slice(1:20)
+
+pc1_positive
+
+pc1_plot <- loadings %>%
+  rownames_to_column("gene") %>%
+  mutate(abs_loading = abs(PC1)) %>%
+  arrange(desc(abs_loading)) %>%
+  slice(1:20)
+
+ggplot(pc1_plot,
+       aes(x = reorder(gene, abs_loading),
+           y = PC1)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "Top gene loadings for PC1",
+    x = "Gene",
+    y = "Loading")
+
+```
+
+6.2 PC2
+```{r}
+# Top positive genes contributing to PC2
+
+pc2_positive <- loadings %>%
+  rownames_to_column("gene") %>%
+  arrange(desc(PC2)) %>%
+  slice(1:20)
+
+pc2_positive
+
+# Top negative genes contributing to PC2
+
+pc2_negative <- loadings %>%
+  rownames_to_column("gene") %>%
+  arrange(PC2) %>%
+  slice(1:20)
+
+pc2_negative
+
+pc2_plot <- loadings %>%
+  rownames_to_column("gene") %>%
+  mutate(abs_loading = abs(PC2)) %>%
+  arrange(desc(abs_loading)) %>%
+  slice(1:20)
+
+ggplot(pc2_plot,
+       aes(x = reorder(gene, abs_loading),
+           y = PC2)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "Top gene loadings for PC2",
+    x = "Gene",
+    y = "Loading")
+
+```
+
+6.3 PC3
+```{r}
+# Top positive genes contributing to PC3
+
+pc3_positive <- loadings %>% 
+  rownames_to_column("gene") %>%
+  arrange(desc(PC3)) %>%
+  slice(1:20)
+
+pc3_positive
+
+# Top negative genes contributing to PC3
+
+pc3_negative <- loadings %>%
+  rownames_to_column("gene") %>%
+  arrange(PC3) %>%
+  slice(1:20)
+
+pc3_negative
+
+pc3_plot <- loadings %>%
+  rownames_to_column("gene") %>%
+  mutate(abs_loading = abs(PC3)) %>%
+  arrange(desc(abs_loading)) %>%
+  slice(1:20)
+
+ggplot(pc3_plot,
+       aes(x = reorder(gene, abs_loading),
+           y = PC3)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "Top gene loadings for PC3",
+    x = "Gene",
+    y = "Loading")
+```
+7. Import metadata and add anatomical labels
+```{r}
+metadata <- read.csv(
+  "/Users/kexin/Desktop/project/data/SCs_32.csv",
+  check.names = FALSE
+)
+
+dim(metadata)
+head(metadata[, 1:6])
+colnames(metadata)
+
+# Since the metadata and expression matrix are in the same cell order,
+# we only check whether they contain the same number of cells.
+stopifnot(nrow(metadata) == nrow(expr_df))
+
+# Add metadata to PCA dataframe
+pca_df$sample_id <- metadata$`Sample Id`
+pca_df$cell_id <- metadata$`Cell Label`
+pca_df$neurotransmitter <- metadata$Neurotransmitter.Type
+pca_df$cell_class <- metadata$Class
+pca_df$subclass <- metadata$Subclass
+pca_df$supertype <- metadata$Supertype
+pca_df$allen_cluster <- metadata$Cluster
+pca_df$anatomical_structure <- metadata$Anatomical.Structure
+pca_df$anatomical_substructure <- metadata$Anatomical.Substructure
+
+# Check labels
+table(pca_df$neurotransmitter)
+table(pca_df$anatomical_substructure)
+```
+
+8. PCA colored by anatomical and biological labels
+```{r, fig.width=6, fig.height=5}
+# PCA colored by neurotransmitter type
+ggplot(pca_df, aes(x = PC1, y = PC2, color = neurotransmitter)) +
+  geom_point(size = 2.5, alpha = 0.8) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "PCA of SCs neurons colored by neurotransmitter type",
+    x = pc1_lab,
+    y = pc2_lab,
+    color = "Neurotransmitter"
+  )
+
+# PCA colored by anatomical substructure
+ggplot(pca_df, aes(x = PC1, y = PC2, color = anatomical_substructure)) +
+  geom_point(size = 2.5, alpha = 0.8) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "PCA of SCs neurons colored by anatomical substructure",
+    x = pc1_lab,
+    y = pc2_lab,
+    color = "Substructure"
+  )
+
+# PCA colored by subclass
+ggplot(pca_df, aes(x = PC1, y = PC2, color = subclass)) +
+  geom_point(size = 2.2, alpha = 0.75) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "PCA of SCs neurons colored by Allen subclass",
+    x = pc1_lab,
+    y = pc2_lab,
+    color = "Subclass"
+  )
+```
+
+9. UMAP without clustering
+```{r, fig.width=6, fig.height=5}
+# Use the first 30 PCs for UMAP.
+# No clustering is applied here. UMAP is used only to visualize transcriptomic structure.
+
+pc_use <- 1:30
+pca_input <- pca_res$x[, pc_use]
+
+umap_res <- uwot::umap(
+  pca_input,
+  n_neighbors = 15,
+  min_dist = 0.3,
+  metric = "euclidean"
+)
+
+umap_df <- as.data.frame(umap_res)
+colnames(umap_df) <- c("UMAP1", "UMAP2")
+
+umap_df$cell_label <- cell_labels
+umap_df$sample_id <- metadata$`Sample Id`
+umap_df$cell_id <- metadata$`Cell Label`
+umap_df$neurotransmitter <- metadata$Neurotransmitter.Type
+umap_df$cell_class <- metadata$Class
+umap_df$subclass <- metadata$Subclass
+umap_df$supertype <- metadata$Supertype
+umap_df$allen_cluster <- metadata$Cluster
+umap_df$anatomical_structure <- metadata$Anatomical.Structure
+umap_df$anatomical_substructure <- metadata$Anatomical.Substructure
+
+# UMAP without labels
+ggplot(umap_df, aes(x = UMAP1, y = UMAP2)) +
+  geom_point(size = 2.5, alpha = 0.75) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "UMAP of SCs neurons, section 32",
+    subtitle = "UMAP based on PC1-PC30; no clustering applied",
+    x = "UMAP1",
+    y = "UMAP2"
+  )
+```
+
+10. UMAP colored by anatomical and biological labels
+```{r}
+# UMAP colored by neurotransmitter type
+ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = neurotransmitter)) +
+  geom_point(size = 2.5, alpha = 0.8) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "UMAP of SCs neurons colored by neurotransmitter type",
+    subtitle = "UMAP based on PC1-PC30",
+    x = "UMAP1",
+    y = "UMAP2",
+    color = "Neurotransmitter"
+  )
+
+# UMAP colored by anatomical substructure
+ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = anatomical_substructure)) +
+  geom_point(size = 2.5, alpha = 0.8) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "UMAP of SCs neurons colored by anatomical substructure",
+    subtitle = "Testing whether transcriptomic structure recovers SCs subregions",
+    x = "UMAP1",
+    y = "UMAP2",
+    color = "Substructure"
+  )
+
+# UMAP colored by Allen subclass
+ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = subclass)) +
+  geom_point(size = 2.2, alpha = 0.75) +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "UMAP of SCs neurons colored by Allen subclass",
+    subtitle = "UMAP based on PC1-PC30",
+    x = "UMAP1",
+    y = "UMAP2",
+    color = "Subclass"
+  )
+```
+
+11. Distribution of anatomical substructures across Allen subclasses
+```{r}
+# Count the number of cells for each anatomical substructure
+# within each Allen subclass.
+
+subclass_table <- pca_df %>%
+  count(anatomical_substructure, subclass)
+
+subclass_table
+
+# Calculate the percentage of each subclass within each anatomical substructure
+
+subclass_percent <- subclass_table %>%
+  group_by(anatomical_substructure) %>%
+  mutate(percent = n / sum(n) * 100)
+
+subclass_percent
+
+ggplot(
+  subclass_percent,
+  aes(
+    x = anatomical_substructure,
+    y = percent,
+    fill = subclass
+  )
+) +
+  geom_col() +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "Allen subclass composition of SCs anatomical substructures",
+    x = "Anatomical substructure",
+    y = "Percentage of cells",
+    fill = "Allen subclass"
+  )
+```
+
+12. Neurotransmitter composition of SCs substructures
+```{r}
+neuro_table <- pca_df %>%
+  count(
+    anatomical_substructure,
+    neurotransmitter
+  ) %>%
+  group_by(anatomical_substructure) %>%
+  mutate(percent = n / sum(n) * 100)
+
+neuro_table
+
+ggplot(
+  neuro_table,
+  aes(
+    x = anatomical_substructure,
+    y = percent,
+    fill = neurotransmitter
+  )
+) +
+  geom_col() +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "Neurotransmitter composition across SCs substructures",
+    x = "Anatomical substructure",
+    y = "Percentage of cells",
+    fill = "Neurotransmitter"
+  )
+```
+
+```{r}
+subclass_table <- table(
+  pca_df$anatomical_substructure,
+  pca_df$subclass
+)
+
+subclass_table
+
+chisq.test(
+    subclass_table,
+    simulate.p.value = TRUE,
+    B = 10000
+)
+```
+
+```{r}
+chi_subclass <- chisq.test(
+    subclass_table,
+    simulate.p.value = TRUE
+)
+
+stdres <- chi_subclass$stdres
+
+round(stdres,2)
+
+pheatmap(
+    stdres,
+    cluster_rows = FALSE,
+    cluster_cols = FALSE,
+    display_numbers = TRUE
+)
+```

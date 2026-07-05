@@ -1,4 +1,4 @@
-Sample Id,Supertype,Section.Label,Neurotransmitter.Type,Anatomical.Division,Cluster,Class,Anatomical.Structure,Subclass,Anatomical.Substructure
+Sample Id,Supertype,Section Label,Neurotransmitter Type,Anatomical Division,Cluster,Class,Anatomical Structure,Subclass,Anatomical Substructure
 b4e05f3a-6b66-45f9-9224-cdd3bc342635,0786 SCsg Pde5a Glut_2,C57BL6J-638850.32,Glut,MB,3365 SCsg Pde5a Glut_2,19 MB Glut,SCs,187 SCsg Pde5a Glut,SCop
 a99fb585-926a-4f05-89ca-43a5a353141b,0786 SCsg Pde5a Glut_2,C57BL6J-638850.32,Glut,MB,3365 SCsg Pde5a Glut_2,19 MB Glut,SCs,187 SCsg Pde5a Glut,SCop
 50cbcaf2-fd36-43a7-a964-a85677056f0d,0787 SCsg Pde5a Glut_3,C57BL6J-638850.32,Glut,MB,3368 SCsg Pde5a Glut_3,19 MB Glut,SCs,187 SCsg Pde5a Glut,SCop
