@@ -1,0 +1,10 @@
+Remove duplicated cells after selecting the target cells
+```{r}
+library(dplyr)
+
+df <- read.csv("/Users/kexin/Desktop/SCzo.csv")
+
+df_clean <- df %>% distinct(Sample.Id, .keep_all = TRUE)
+
+write.csv(df_clean, "/Users/kexin/Desktop/SCzo_32.csv", row.names = FALSE)
+```
