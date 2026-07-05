@@ -403,6 +403,66 @@ ggplot(
 ```
 
 14. Association between NOT clusters and Allen subclasses
+
+14.1 Allen subclass composition of NOT clusters
+```{r, fig.width=8, fig.height=6}
+# Keep the top 8 most abundant Allen subclasses and group the rest as "Others".
+# This makes the stacked bar plot easier to interpret.
+
+top_subclass <- pca_df %>%
+  count(subclass, sort = TRUE) %>%
+  slice(1:8) %>%
+  pull(subclass)
+
+plot_df <- pca_df %>%
+  mutate(
+    subclass_plot = ifelse(
+      subclass %in% top_subclass,
+      subclass,
+      "Others"
+    )
+  ) %>%
+  count(cluster, subclass_plot) %>%
+  group_by(cluster) %>%
+  mutate(percent = n / sum(n) * 100) %>%
+  ungroup()
+
+# Order subclasses automatically by overall abundance.
+subclass_order <- plot_df %>%
+  group_by(subclass_plot) %>%
+  summarise(total = sum(n), .groups = "drop") %>%
+  arrange(desc(total)) %>%
+  pull(subclass_plot)
+
+# Put "Others" at the end so it appears on top of the stacked bars.
+subclass_order <- c(
+  setdiff(subclass_order, "Others"),
+  "Others"
+)
+
+plot_df$subclass_plot <- factor(
+  plot_df$subclass_plot,
+  levels = subclass_order
+)
+
+ggplot(
+  plot_df,
+  aes(
+    x = cluster,
+    y = percent,
+    fill = subclass_plot
+  )
+) +
+  geom_col() +
+  theme_classic(base_size = 14) +
+  labs(
+    title = "Allen subclass composition of NOT clusters",
+    x = "Transcriptomic cluster",
+    y = "Percentage of cells",
+    fill = "Allen subclass"
+  )
+```
+
 ```{r}
 # Test whether Allen subclass composition differs between NOT clusters.
 
@@ -420,7 +480,7 @@ chisq.test(
 )
 ```
 
-14.1 Standardized residual analysis
+14.2 Standardized residual analysis
 ```{r}
 # Standardized residuals show which subclasses are enriched or depleted
 # in each transcriptomic cluster.
