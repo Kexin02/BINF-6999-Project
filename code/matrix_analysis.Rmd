@@ -739,4 +739,41 @@ scs_summary <- pca_df %>%
 scs_summary
 ```
 
+17. Expression of top random forest genes across SCs substructures
+```{r}
+# Select the top random forest genes that are most important for
+# predicting SCs anatomical substructure.
+
+top_rf_gene_names <- top_rf_genes$gene[1:20]
+
+# Calculate mean expression of each top RF gene within each anatomical substructure.
+rf_gene_summary <- expr_mat_clean %>%
+  mutate(anatomical_substructure = pca_df$anatomical_substructure) %>%
+  group_by(anatomical_substructure) %>%
+  summarise(
+    across(
+      all_of(top_rf_gene_names),
+      mean
+    )
+  )
+
+rf_gene_summary
+
+# Convert to matrix for heatmap.
+rf_heatmap_mat <- rf_gene_summary %>%
+  column_to_rownames("anatomical_substructure") %>%
+  as.matrix()
+
+# Scale each gene across substructures so relative enrichment is easier to see.
+rf_heatmap_scaled <- scale(rf_heatmap_mat)
+
+# Plot heatmap.
+pheatmap(
+  rf_heatmap_scaled,
+  cluster_rows = FALSE,
+  cluster_cols = TRUE,
+  main = "Expression of top random forest genes across SCs substructures"
+)
+```
+
 
