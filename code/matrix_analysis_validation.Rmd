@@ -1,5 +1,5 @@
 ---
-title: "matrix_analysis"
+title: "matrix_analysis_validation_scs"
 author: "Kexin Gong"
 date: "`r Sys.Date()`"
 output: html_document
@@ -25,12 +25,22 @@ set.seed(929) # Ensure reproducibility of the analysis results
 
 1. Import data
 ```{r}
+# Import the gene matrix file
 expr_df <- read.csv("/Users/kexin/Desktop/project/data/SCs_32_matrix.csv", check.names = FALSE)
 
+# Check the data frame
 dim(expr_df)
 head(expr_df[, 1:6])
 
 cell_labels <- expr_df$cell_label
+
+# Import the metadata file
+metadata <- read.csv("/Users/kexin/Desktop/project/data/SCs_32.csv", check.names = FALSE)
+
+# Check the data frame
+dim(metadata)
+head(metadata[, 1:6])
+colnames(metadata)
 ```
 
 2. Prepare expression matrix
@@ -210,9 +220,9 @@ pc1_positive
 
 # Top positive genes contributing to PC1
 
-pc1_positive <- loadings %>%
+pc1_negative <- loadings %>%
   rownames_to_column("gene") %>%
-  arrange(desc(PC1)) %>%
+  arrange(PC1) %>%
   slice(1:20)
 
 pc1_positive
@@ -314,15 +324,6 @@ ggplot(pc3_plot,
 ```
 7. Import metadata and add anatomical labels
 ```{r}
-metadata <- read.csv(
-  "/Users/kexin/Desktop/project/data/SCs_32.csv",
-  check.names = FALSE
-)
-
-dim(metadata)
-head(metadata[, 1:6])
-colnames(metadata)
-
 # Since the metadata and expression matrix are in the same cell order,
 # we only check whether they contain the same number of cells.
 stopifnot(nrow(metadata) == nrow(expr_df))
@@ -440,7 +441,7 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = anatomical_substructure)) +
   theme_classic(base_size = 14) +
   labs(
     title = "UMAP of SCs neurons colored by anatomical substructure",
-    subtitle = "Testing whether transcriptomic structure recovers SCs subregions",
+    subtitle = "Assessing correspondence between transcriptomic structure and SCs subregions",
     x = "UMAP1",
     y = "UMAP2",
     color = "Substructure"
@@ -544,13 +545,16 @@ chisq.test(
 13.1 Standardized residual analysis
 ```{r, fig.width=7, fig.height=5}
 chi_subclass <- chisq.test(
-    subclass_table,
-    simulate.p.value = TRUE
+  subclass_table,
+  simulate.p.value = TRUE,
+  B = 10000
 )
+
+chi_subclass
 
 stdres <- chi_subclass$stdres
 
-round(stdres,2)
+round(stdres, 2)
 
 pheatmap(
     stdres,
@@ -720,6 +724,56 @@ ggplot(top_rf_genes, aes(x = reorder(gene, MeanDecreaseGini), y = MeanDecreaseGi
   )
 ```
 
+```{r}
+# Evaluate random forest classification performance
+
+rf_pred <- predict(
+  rf_model,
+  x_test
+)
+
+rf_cm <- confusionMatrix(
+  rf_pred,
+  y_test
+)
+
+rf_cm
+
+# Overall classification performance
+rf_cm$overall
+
+# Class-specific classification performance
+rf_cm$byClass
+
+
+# Calculate majority-class baseline accuracy
+
+class_counts <- table(y_train)
+
+majority_class <- names(
+  which.max(class_counts)
+)
+
+baseline_accuracy <- mean(
+  y_test == majority_class
+)
+
+baseline_accuracy
+
+
+# Compare random forest accuracy with the majority-class baseline
+
+rf_accuracy <- unname(
+  rf_cm$overall["Accuracy"]
+)
+
+accuracy_improvement <- rf_accuracy - baseline_accuracy
+
+rf_accuracy
+baseline_accuracy
+accuracy_improvement
+```
+
 16. Summary of SCs anatomical substructure analysis
 ```{r}
 # Summarize cell number, neurotransmitter composition,
@@ -732,6 +786,7 @@ scs_summary <- pca_df %>%
     mean_PC1 = mean(PC1),
     mean_PC2 = mean(PC2),
     mean_PC3 = mean(PC3),
+    mean_PC4 = mean(PC4),
     percent_GABA = mean(neurotransmitter == "GABA") * 100,
     percent_Glut = mean(neurotransmitter == "Glut") * 100
   )
