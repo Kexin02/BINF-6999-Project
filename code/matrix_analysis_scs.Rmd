@@ -1,5 +1,5 @@
 ---
-title: "matrix_analysis_not"
+title: "matrix_analysis_sc"
 author: "Kexin Gong"
 date: "`r Sys.Date()`"
 output: html_document
@@ -24,9 +24,9 @@ set.seed(929)
 
 1. Import NOT data
 ```{r}
-expr_df <- read.csv("/Users/kexin/Desktop/project/data/NOT_33_matrix.csv", check.names = FALSE)
+expr_df <- read.csv("/Users/kexin/Desktop/project/data/SCs_32_matrix.csv", check.names = FALSE)
 
-metadata <- read.csv("/Users/kexin/Desktop/project/data/NOT_33_selected.csv", check.names = FALSE)
+metadata <- read.csv("/Users/kexin/Desktop/project/data/SCs_32.csv", check.names = FALSE)
 
 dim(expr_df)
 dim(metadata)
@@ -36,7 +36,6 @@ head(metadata[, 1:6])
 
 cell_labels <- expr_df$cell_label
 
-# Since expression matrix and metadata are assumed to be in the same cell order
 stopifnot(nrow(expr_df) == nrow(metadata))
 ```
 
@@ -128,7 +127,7 @@ ggplot(scree_df[1:30, ], aes(x = PC_number, y = Cumulative)) +
   )
 ```
 
-5. Add NOT metadata
+5. Add SCs metadata
 ```{r}
 pca_df$sample_id <- metadata$`Sample Id`
 pca_df$neurotransmitter <- metadata$Neurotransmitter.Type
@@ -137,6 +136,7 @@ pca_df$subclass <- metadata$Subclass
 pca_df$supertype <- metadata$Supertype
 pca_df$allen_cluster <- metadata$Cluster
 pca_df$anatomical_structure <- metadata$Anatomical.Structure
+pca_df$anatomical_substructure <- metadata$Anatomical.Substructure
 
 table(pca_df$neurotransmitter)
 table(pca_df$subclass)
@@ -230,6 +230,7 @@ umap_df$neurotransmitter <- metadata$Neurotransmitter.Type
 umap_df$subclass <- metadata$Subclass
 umap_df$supertype <- metadata$Supertype
 umap_df$allen_cluster <- metadata$Cluster
+umap_df$substructure <- metadata$Anatomical.Substructure
 
 ggplot(umap_df, aes(x = UMAP1, y = UMAP2)) +
   geom_point(size = 3, alpha = 0.8) +
@@ -256,15 +257,33 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = subclass)) +
     y = "UMAP2",
     color = "Subclass"
   )
+
+ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = substructure)) +
+  geom_point(size = 3, alpha = 0.8) +
+  theme_classic(base_size = 14) +
+  labs(
+    x = "UMAP1",
+    y = "UMAP2",
+    color = "Substructure"
+  )
 ```
+
+```{r}
+ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = neurotransmitter)) +
+  geom_point(size = 3, alpha = 0.85) +
+  theme_classic(base_size = 14) +
+  labs(
+    x = pc1_lab,
+    y = pc2_lab,
+    color = "Neurotransmitter"
+  )
+```
+
 
 9. Determine the optimal number of NOT clusters
 ```{r, fig.width=6, fig.height=4.5}
 # Evaluate different k values for k-means clustering.
 # Clustering is performed on PCA-reduced expression data.
-
-#pc_use <- 1:min(15, ncol(pca_res$x))
-
 pca_input <- pca_res$x[, pc_use]
 
 k_results <- data.frame()
@@ -314,7 +333,7 @@ ggplot(k_results, aes(x = k, y = total_withinss)) +
 ```{r, fig.width=6, fig.height=4.5}
 # Select the k value with the highest silhouette score.
 # This provides a data-driven choice of cluster number.
-best_k <- 2
+best_k <- 3
 
 km_final <- kmeans(
   pca_input,
@@ -344,7 +363,7 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = cluster_kmeans)) +
   )
 ```
 
-11. Characterization of NOT transcriptomic clusters
+11. Characterization of SCs transcriptomic clusters
 ```{r}
 # Rename k-means cluster labels for easier downstream analysis.
 pca_df$cluster <- pca_df$cluster_kmeans
@@ -416,7 +435,7 @@ pheatmap(
 )
 ```
 
-14. Association between NOT clusters and Allen subclasses
+14. Association between SCs clusters and Allen subclasses
 
 14.1 Allen subclass composition of NOT clusters
 ```{r, fig.width=6, fig.height=4.5}
@@ -549,7 +568,7 @@ top_diff_genes <- cluster_diff %>%
 top_diff_genes
 ```
 
-15.1 Genes with the largest mean expression differences between NOT clusters
+15.1 Genes with the largest mean expression differences between SCs clusters
 ```{r, fig.width=6, fig.height=4.5}
 ggplot(
   top_diff_genes,
@@ -612,8 +631,49 @@ top_markers <- marker_results %>%
 
 top_markers
 ```
+```{r}
+marker_results <- data.frame()
 
-17. Heatmap of NOT cluster marker genes
+for (cl in unique(pca_df$anatomical_substructure)) {
+  
+  cells_in <- pca_df$anatomical_substructure == cl
+  
+  for (gene in colnames(expr_mat_clean)) {
+    
+    expr_in <- expr_mat_clean[cells_in, gene]
+    expr_out <- expr_mat_clean[!cells_in, gene]
+    
+    test <- wilcox.test(expr_in, expr_out)
+    
+    marker_results <- rbind(
+      marker_results,
+      data.frame(
+        anatomical_substructure = cl,
+        gene = gene,
+        mean_in = mean(expr_in),
+        mean_out = mean(expr_out),
+        mean_difference = mean(expr_in) - mean(expr_out),
+        p_value = test$p.value
+      )
+    )
+  }
+}
+
+marker_results <- marker_results %>%
+  group_by(anatomical_substructure) %>%
+  mutate(p_adj = p.adjust(p_value, method = "BH")) %>%
+  ungroup() %>%
+  arrange(anatomical_substructure, p_adj, desc(abs(mean_difference)))
+
+top_anatomy_markers <- marker_results %>%
+  group_by(anatomical_substructure) %>%
+  arrange(p_adj, desc(abs(mean_difference))) %>%
+  slice_head(n = 10)
+
+top_anatomy_markers
+```
+
+17. Heatmap of SCs cluster marker genes
 ```{r, fig.width=6, fig.height=4.5}
 # Visualize top marker genes across NOT cells.
 # Cells are annotated by transcriptomic cluster only to avoid annotation-color mismatch.
@@ -650,7 +710,7 @@ pheatmap(
 ```{r, fig.width=6, fig.height=4.5}
 # Project selected marker gene expression onto the NOT UMAP.
 
-known_genes <- c("Slc17a6", "Slc32a1", "Gad2")
+known_genes <- c("Slc17a6", "Lhfp", "Nrn1", "Nptx2")
 
 known_genes_available <- known_genes[known_genes %in% colnames(expr_mat_clean)]
 known_genes_missing <- known_genes[!known_genes %in% colnames(expr_mat_clean)]
@@ -697,4 +757,143 @@ cluster_summary <- pca_df %>%
   )
 
 cluster_summary
+```
+
+```{r}
+cluster_anatomy_table <- table(
+  pca_df$cluster,
+  pca_df$anatomical_substructure
+)
+
+cluster_anatomy_table
+```
+
+```{r, fig.width=6, fig.height=4.5}
+cluster_anatomy_prop <- as.data.frame(cluster_anatomy_table) %>%
+  group_by(Var1) %>%
+  mutate(proportion = Freq / sum(Freq))
+
+ggplot(
+  cluster_anatomy_prop,
+  aes(
+    x = Var1,
+    y = proportion,
+    fill = Var2
+  )
+) +
+  geom_col(position = "fill") +
+  theme_classic(base_size = 14) +
+  labs(
+    x = "Data-driven cluster",
+    y = "Proportion",
+    fill = "Anatomical substructure"
+  )
+```
+
+```{r}
+library(mclust)
+
+ari <- adjustedRandIndex(
+  pca_df$cluster,
+  pca_df$anatomical_substructure
+)
+
+ari
+```
+
+```{r}
+library(aricode)
+
+cluster_numeric <- as.integer(
+  factor(pca_df$cluster)
+)
+
+anatomy_numeric <- as.integer(
+  factor(pca_df$anatomical_substructure)
+)
+
+nmi_scs <- aricode::NMI(
+  cluster_numeric,
+  anatomy_numeric
+)
+
+nmi_scs
+```
+
+```{r}
+cluster_to_anatomy <- c(
+  "1" = "SCzo",
+  "2" = "SCsg",
+  "3" = "SCop"
+)
+
+pca_df$matched_anatomy <- cluster_to_anatomy[
+  as.character(pca_df$cluster)
+]
+
+table(
+  pca_df$matched_anatomy,
+  pca_df$anatomical_substructure
+)
+```
+
+
+
+```{r}
+# Match each data-driven cluster to an anatomical substructure
+
+cluster_to_anatomy <- c(
+  "1" = "SCzo",
+  "2" = "SCsg",
+  "3" = "SCop"
+)
+
+pca_df$matched_anatomy <- cluster_to_anatomy[
+  as.character(pca_df$cluster)
+]
+
+
+# Compare matched clusters with known anatomical substructures
+
+cluster_anatomy_table <- table(
+  pca_df$matched_anatomy,
+  pca_df$anatomical_substructure
+)
+
+cluster_anatomy_table
+
+
+# Calculate cluster-anatomy concordance
+
+cluster_match_concordance <- mean(
+  pca_df$matched_anatomy ==
+    pca_df$anatomical_substructure
+)
+
+cluster_match_concordance
+
+
+# Calculate majority-class baseline
+
+anatomy_proportions <- prop.table(
+  table(pca_df$anatomical_substructure)
+)
+
+anatomy_proportions
+
+baseline_concordance <- max(
+  anatomy_proportions
+)
+
+baseline_concordance
+
+
+# Compare cluster-anatomy concordance with the baseline
+
+concordance_difference <-
+  cluster_match_concordance - baseline_concordance
+
+cluster_match_concordance
+baseline_concordance
+concordance_difference
 ```

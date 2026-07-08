@@ -498,6 +498,36 @@ ggplot(
   )
 ```
 
+```{r}
+neuro_table <- table(pca_df$anatomical_substructure, pca_df$neurotransmitter)
+
+neuro_table
+
+chisq.test(neuro_table, simulate.p.value = TRUE, B = 10000)
+```
+
+```{r, fig.width=6, fig.height=3}
+# Standardized residuals show which subclasses are enriched or depleted
+# in each transcriptomic cluster.
+
+chi_subclass_neuro <- chisq.test(
+  neuro_table,
+  simulate.p.value = TRUE,
+  B = 10000
+)
+
+stdres_neuro <- chi_subclass_neuro$stdres
+
+round(stdres_neuro, 2)
+
+pheatmap(
+  stdres_neuro,
+  cluster_rows = FALSE,
+  cluster_cols = FALSE,
+  display_numbers = TRUE,
+)
+```
+
 13. Association between Allen subclasses and anatomical substructures
 ```{r}
 subclass_table <- table(pca_df$anatomical_substructure, pca_df$subclass)
@@ -624,6 +654,83 @@ ggplot(
     y = "PC2 score"
   ) +
   guides(fill = "none")
+```
+
+```{r}
+# Identify statistically enriched genes for each cluster
+# Each cluster is compared against all other NOT cells
+
+marker_results <- data.frame()
+
+for (cl in unique(pca_df$anatomical_substructure)) {
+  
+  cells_in <- pca_df$anatomical_substructure == cl
+  
+  for (gene in colnames(expr_mat_clean)) {
+    
+    expr_in <- expr_mat_clean[cells_in, gene]
+    expr_out <- expr_mat_clean[!cells_in, gene]
+    
+    test <- wilcox.test(expr_in, expr_out)
+    
+    marker_results <- rbind(
+      marker_results,
+      data.frame(
+        anatomical_substructure = cl,
+        gene = gene,
+        mean_in = mean(expr_in),
+        mean_out = mean(expr_out),
+        mean_difference = mean(expr_in) - mean(expr_out),
+        p_value = test$p.value
+      )
+    )
+  }
+}
+
+marker_results <- marker_results %>%
+  group_by(anatomical_substructure) %>%
+  mutate(p_adj = p.adjust(p_value, method = "BH")) %>%
+  ungroup() %>%
+  arrange(anatomical_substructure, p_adj, desc(abs(mean_difference)))
+
+top_markers <- marker_results %>%
+  group_by(anatomical_substructure) %>%
+  arrange(p_adj, desc(abs(mean_difference))) %>%
+  slice_head(n = 10)
+
+top_markers
+```
+
+```{r, fig.width=6, fig.height=4.5}
+# Visualize top marker genes across NOT cells.
+# Cells are annotated by transcriptomic cluster only to avoid annotation-color mismatch.
+
+top_marker_genes <- unique(top_markers$gene)
+
+heatmap_mat <- expr_mat_clean[, top_marker_genes]
+
+# Scale each gene across cells
+heatmap_scaled <- scale(heatmap_mat)
+
+# Add row annotation
+annotation_row <- data.frame(
+  Substructure = factor(pca_df$anatomical_substructure)
+)
+
+rownames(annotation_row) <- pca_df$cell_label
+rownames(heatmap_scaled) <- pca_df$cell_label
+
+# Make sure row order matches
+annotation_row <- annotation_row[rownames(heatmap_scaled), , drop = FALSE]
+
+
+pheatmap(
+  heatmap_scaled,
+  annotation_row = annotation_row,
+  show_rownames = FALSE,
+  show_colnames = TRUE,
+  fontsize_col = 8,
+)
 ```
 
 15. Random forest classification of anatomical substructure
