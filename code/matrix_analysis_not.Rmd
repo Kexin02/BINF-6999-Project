@@ -88,11 +88,7 @@ ggplot(qc_df, aes(x = total_expression)) +
 
 4. PCA
 ```{r}
-pca_res <- prcomp(
-  expr_mat_clean,
-  center = TRUE,
-  scale. = TRUE
-)
+pca_res <- prcomp(expr_mat_clean, center = TRUE, scale. = FALSE)
 
 pca_df <- as.data.frame(pca_res$x)
 pca_df$cell_label <- cell_labels

@@ -96,9 +96,9 @@ ggplot(qc_df, aes(x = total_expression)) +
 ```
 
 4. PCA
-```{r, fig.width=6, fig.height=5}
+```{r, fig.width=6, fig.height=4.5}
 # Perform PCA on the cleaned expression matrix with centering and scaling
-pca_res <- prcomp(expr_mat_clean, center = TRUE, scale. = TRUE)
+pca_res <- prcomp(expr_mat_clean, center = TRUE, scale. = FALSE)
 
 # Convert PCA scores to a data frame and retain cell labels
 pca_df <- as.data.frame(pca_res$x)
@@ -118,7 +118,6 @@ ggplot(pca_df, aes(x = PC1, y = PC2)) +
   geom_point(size = 3, alpha = 0.85) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of SCs cells, section 32",
     x = pc1_lab,
     y = pc2_lab
   )
@@ -137,7 +136,6 @@ ggplot(scree_df[1:30, ], aes(x = PC_number, y = Variance)) +
   geom_line() +
   theme_classic(base_size = 14) +
   labs(
-    title = "Scree plot of PCA",
     x = "Principal component",
     y = "Variance explained (%)"
   )
@@ -149,7 +147,6 @@ ggplot(scree_df[1:30, ], aes(x = PC_number, y = Cumulative)) +
   geom_line() +
   theme_classic(base_size = 14) +
   labs(
-    title = "Cumulative variance explained by PCs",
     x = "Principal component",
     y = "Cumulative variance explained (%)"
   )
@@ -157,13 +154,11 @@ ggplot(scree_df[1:30, ], aes(x = PC_number, y = Cumulative)) +
 ```
 
 5. Explore additional PCA dimensions
-```{r, fig.width=6, fig.height=5}
+```{r, fig.width=6, fig.height=4.5}
 ggplot(pca_df, aes(x = PC1, y = PC3)) +
   geom_point(size = 2.5, alpha = 0.75) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of SCs cells, section 32",
-    subtitle = "PC1 vs PC3",
     x = paste0("PC1 (", round(var_explained[1], 1), "%)"),
     y = paste0("PC3 (", round(var_explained[3], 1), "%)")
   )
@@ -172,8 +167,6 @@ ggplot(pca_df, aes(x = PC2, y = PC3)) +
   geom_point(size = 2.5, alpha = 0.75) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of SCs cells, section 32",
-    subtitle = "PC2 vs PC3",
     x = paste0("PC2 (", round(var_explained[2], 1), "%)"),
     y = paste0("PC3 (", round(var_explained[3], 1), "%)")
   )
@@ -182,8 +175,6 @@ ggplot(pca_df, aes(x = PC1, y = PC4)) +
   geom_point(size = 2.5, alpha = 0.75) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of SCs cells, section 32",
-    subtitle = "PC1 vs PC4",
     x = paste0("PC1 (", round(var_explained[1], 1), "%)"),
     y = paste0("PC4 (", round(var_explained[4], 1), "%)")
   )
@@ -192,16 +183,14 @@ ggplot(pca_df, aes(x = PC2, y = PC4)) +
   geom_point(size = 2.5, alpha = 0.75) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of SCs cells, section 32",
-    subtitle = "PC2 vs PC4",
     x = paste0("PC2 (", round(var_explained[2], 1), "%)"),
     y = paste0("PC4 (", round(var_explained[4], 1), "%)")
   )
 ```
 6. Principal component loading analysis
 ```{r}
-# Extract PCA loading matrix.
-# Each loading represents the contribution of a gene to a principal component.
+# Extract PCA loading matrix
+# Each loading represents the contribution of a gene to a principal component
 
 loadings <- as.data.frame(pca_res$rotation)
 head(loadings)
@@ -240,10 +229,8 @@ ggplot(pc1_plot,
   coord_flip() +
   theme_classic(base_size = 14) +
   labs(
-    title = "Top gene loadings for PC1",
     x = "Gene",
     y = "Loading")
-
 ```
 
 6.2 PC2
@@ -279,10 +266,8 @@ ggplot(pc2_plot,
   coord_flip() +
   theme_classic(base_size = 14) +
   labs(
-    title = "Top gene loadings for PC2",
     x = "Gene",
     y = "Loading")
-
 ```
 
 6.3 PC3
@@ -345,13 +330,12 @@ table(pca_df$anatomical_substructure)
 ```
 
 8. PCA colored by anatomical and biological labels
-```{r, fig.width=6, fig.height=5}
+```{r, fig.width=6, fig.height=4.5}
 # PCA colored by neurotransmitter type
 ggplot(pca_df, aes(x = PC1, y = PC2, color = neurotransmitter)) +
   geom_point(size = 2.5, alpha = 0.8) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of SCs neurons colored by neurotransmitter type",
     x = pc1_lab,
     y = pc2_lab,
     color = "Neurotransmitter"
@@ -362,7 +346,6 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = anatomical_substructure)) +
   geom_point(size = 2.5, alpha = 0.8) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of SCs neurons colored by anatomical substructure",
     x = pc1_lab,
     y = pc2_lab,
     color = "Substructure"
@@ -373,7 +356,6 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = subclass)) +
   geom_point(size = 2.2, alpha = 0.75) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of SCs neurons colored by Allen subclass",
     x = pc1_lab,
     y = pc2_lab,
     color = "Subclass"
@@ -381,11 +363,11 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = subclass)) +
 ```
 
 9. UMAP without clustering
-```{r, fig.width=6, fig.height=5}
-# Use the first 30 PCs for UMAP.
-# No clustering is applied here. UMAP is used only to visualize transcriptomic structure.
+```{r, fig.width=6, fig.height=4.5}
+# Use the first 10 PCs for UMAP
+# No clustering is applied here. UMAP is used only to visualize transcriptomic structure
 
-pc_use <- 1:30
+pc_use <- 1:10
 pca_input <- pca_res$x[, pc_use]
 
 umap_res <- uwot::umap(
@@ -414,22 +396,18 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2)) +
   geom_point(size = 2.5, alpha = 0.75) +
   theme_classic(base_size = 14) +
   labs(
-    title = "UMAP of SCs neurons, section 32",
-    subtitle = "UMAP based on PC1-PC30; no clustering applied",
     x = "UMAP1",
     y = "UMAP2"
   )
 ```
 
 10. UMAP colored by anatomical and biological labels
-```{r}
+```{r, fig.width=6, fig.height=4.5}
 # UMAP colored by neurotransmitter type
 ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = neurotransmitter)) +
   geom_point(size = 2.5, alpha = 0.8) +
   theme_classic(base_size = 14) +
   labs(
-    title = "UMAP of SCs neurons colored by neurotransmitter type",
-    subtitle = "UMAP based on PC1-PC30",
     x = "UMAP1",
     y = "UMAP2",
     color = "Neurotransmitter"
@@ -440,8 +418,6 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = anatomical_substructure)) +
   geom_point(size = 2.5, alpha = 0.8) +
   theme_classic(base_size = 14) +
   labs(
-    title = "UMAP of SCs neurons colored by anatomical substructure",
-    subtitle = "Assessing correspondence between transcriptomic structure and SCs subregions",
     x = "UMAP1",
     y = "UMAP2",
     color = "Substructure"
@@ -452,8 +428,6 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = subclass)) +
   geom_point(size = 2.2, alpha = 0.75) +
   theme_classic(base_size = 14) +
   labs(
-    title = "UMAP of SCs neurons colored by Allen subclass",
-    subtitle = "UMAP based on PC1-PC30",
     x = "UMAP1",
     y = "UMAP2",
     color = "Subclass"
@@ -461,7 +435,7 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = subclass)) +
 ```
 
 11. Distribution of anatomical substructures across Allen subclasses
-```{r}
+```{r, fig.width=6, fig.height=4.5}
 # Count the number of cells for each anatomical substructure
 # within each Allen subclass.
 
@@ -489,7 +463,6 @@ ggplot(
   geom_col() +
   theme_classic(base_size = 14) +
   labs(
-    title = "Allen subclass composition of SCs anatomical substructures",
     x = "Anatomical substructure",
     y = "Percentage of cells",
     fill = "Allen subclass"
@@ -497,7 +470,7 @@ ggplot(
 ```
 
 12. Neurotransmitter composition of SCs substructures
-```{r}
+```{r, fig.width=6, fig.height=4.5}
 neuro_table <- pca_df %>%
   count(
     anatomical_substructure,
@@ -519,7 +492,6 @@ ggplot(
   geom_col() +
   theme_classic(base_size = 14) +
   labs(
-    title = "Neurotransmitter composition across SCs substructures",
     x = "Anatomical substructure",
     y = "Percentage of cells",
     fill = "Neurotransmitter"
@@ -528,27 +500,16 @@ ggplot(
 
 13. Association between Allen subclasses and anatomical substructures
 ```{r}
-subclass_table <- table(
-  pca_df$anatomical_substructure,
-  pca_df$subclass
-)
+subclass_table <- table(pca_df$anatomical_substructure, pca_df$subclass)
 
 subclass_table
 
-chisq.test(
-    subclass_table,
-    simulate.p.value = TRUE,
-    B = 10000
-)
+chisq.test(subclass_table, simulate.p.value = TRUE, B = 10000)
 ```
 
 13.1 Standardized residual analysis
-```{r, fig.width=7, fig.height=5}
-chi_subclass <- chisq.test(
-  subclass_table,
-  simulate.p.value = TRUE,
-  B = 10000
-)
+```{r, fig.width=6, fig.height=4.5}
+chi_subclass <- chisq.test(subclass_table, simulate.p.value = TRUE,B = 10000)
 
 chi_subclass
 
@@ -565,9 +526,9 @@ pheatmap(
 ```
 
 14. Statistical comparison of PCA coordinates across anatomical substructures
-```{r}
-# Test whether PCA coordinates differ among SCs anatomical substructures.
-# This evaluates whether transcriptomic variation is associated with anatomy.
+```{r, fig.width=6, fig.height=4.5}
+# Test whether PCA coordinates differ among SCs anatomical substructures
+# This evaluates whether transcriptomic variation is associated with anatomy
 
 pcs_to_test <- c("PC1", "PC2", "PC3", "PC4")
 
@@ -630,16 +591,12 @@ ggplot(
   geom_boxplot(alpha = 0.7, outlier.shape = NA) +
   geom_jitter(width = 0.2, size = 1, alpha = 0.4) +
   stat_compare_means(
-    comparisons = list(
-      c("SCop","SCsg"),
-      c("SCop","SCzo")
-    ),
+    comparisons = comparisons,
     method = "wilcox.test",
     label = "p.signif"
   ) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PC1 distribution across SCs anatomical substructures",
     x = "Anatomical substructure",
     y = "PC1 score"
   ) +
@@ -663,7 +620,6 @@ ggplot(
   ) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PC2 distribution across SCs anatomical substructures",
     x = "Anatomical substructure",
     y = "PC2 score"
   ) +
@@ -827,7 +783,6 @@ pheatmap(
   rf_heatmap_scaled,
   cluster_rows = FALSE,
   cluster_cols = TRUE,
-  main = "Expression of top random forest genes across SCs substructures"
 )
 ```
 
