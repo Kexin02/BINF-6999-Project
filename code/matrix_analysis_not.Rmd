@@ -42,12 +42,10 @@ stopifnot(nrow(expr_df) == nrow(metadata))
 
 2. Prepare NOT expression matrix
 ``` {r}
-expr_mat <- expr_df %>%
-  select(-cell_label)
+expr_mat <- expr_df %>% select(-cell_label)
 
 # Remove Blank probes
-expr_mat <- expr_mat %>%
-  select(!starts_with("Blank"))
+expr_mat <- expr_mat %>% select(!starts_with("Blank"))
 
 # Remove genes with missing values
 expr_mat <- expr_mat[, colSums(is.na(expr_mat)) == 0]
@@ -71,7 +69,6 @@ ggplot(qc_df, aes(x = detected_genes)) +
   geom_histogram(bins = 30) +
   theme_classic(base_size = 14) +
   labs(
-    title = "Detected genes per NOT cell",
     x = "Number of detected genes",
     y = "Cell count"
   )
@@ -80,14 +77,13 @@ ggplot(qc_df, aes(x = total_expression)) +
   geom_histogram(bins = 30) +
   theme_classic(base_size = 14) +
   labs(
-    title = "Total log2 expression per NOT cell",
     x = "Total expression",
     y = "Cell count"
   )
 ```
 
 4. PCA
-```{r}
+```{r, fig.width=6, fig.height=4.5}
 pca_res <- prcomp(expr_mat_clean, center = TRUE, scale. = FALSE)
 
 pca_df <- as.data.frame(pca_res$x)
@@ -103,7 +99,6 @@ ggplot(pca_df, aes(x = PC1, y = PC2)) +
   geom_point(size = 3, alpha = 0.85) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of NOT cells, section 32",
     x = pc1_lab,
     y = pc2_lab
   )
@@ -119,7 +114,6 @@ ggplot(scree_df[1:30, ], aes(x = PC_number, y = Variance)) +
   geom_line() +
   theme_classic(base_size = 14) +
   labs(
-    title = "Scree plot of PCA",
     x = "Principal component",
     y = "Variance explained (%)"
   )
@@ -129,7 +123,6 @@ ggplot(scree_df[1:30, ], aes(x = PC_number, y = Cumulative)) +
   geom_line() +
   theme_classic(base_size = 14) +
   labs(
-    title = "Cumulative variance explained by PCs",
     x = "Principal component",
     y = "Cumulative variance explained (%)"
   )
@@ -150,12 +143,11 @@ table(pca_df$subclass)
 ```
 
 6. PCA colored by biological labels
-```{r, fig.width=8, fig.height=8}
+```{r, fig.width=6, fig.height=4.5}
 ggplot(pca_df, aes(x = PC1, y = PC2, color = neurotransmitter)) +
   geom_point(size = 3, alpha = 0.85) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of NOT cells colored by neurotransmitter type",
     x = pc1_lab,
     y = pc2_lab,
     color = "Neurotransmitter"
@@ -165,7 +157,6 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = subclass)) +
   geom_point(size = 3, alpha = 0.85) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of NOT cells colored by Allen subclass",
     x = pc1_lab,
     y = pc2_lab,
     color = "Subclass"
@@ -175,7 +166,6 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = supertype)) +
   geom_point(size = 3, alpha = 0.85) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of NOT cells colored by Allen supertype",
     x = pc1_lab,
     y = pc2_lab,
     color = "Supertype"
@@ -183,7 +173,7 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = supertype)) +
 ```
 
 7. PCA loading analysis
-```{r}
+```{r, fig.width=6, fig.height=4.5}
 loadings <- as.data.frame(pca_res$rotation)
 
 pc1_plot <- loadings %>%
@@ -197,7 +187,6 @@ ggplot(pc1_plot, aes(x = reorder(gene, abs_loading), y = PC1)) +
   coord_flip() +
   theme_classic(base_size = 14) +
   labs(
-    title = "Top gene loadings for PC1 in NOT",
     x = "Gene",
     y = "Loading"
   )
@@ -213,15 +202,16 @@ ggplot(pc2_plot, aes(x = reorder(gene, abs_loading), y = PC2)) +
   coord_flip() +
   theme_classic(base_size = 14) +
   labs(
-    title = "Top gene loadings for PC2 in NOT",
     x = "Gene",
     y = "Loading"
   )
 ```
 
 8. UMAP without clustering
-```{r, fig.width=6, fig.height=8}
-pc_use <- 1:min(15, ncol(pca_res$x))
+```{r, fig.width=6, fig.height=4.5}
+
+pc_use <- 1:10
+
 pca_input <- pca_res$x[, pc_use]
 
 umap_res <- uwot::umap(
@@ -245,8 +235,6 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2)) +
   geom_point(size = 3, alpha = 0.8) +
   theme_classic(base_size = 14) +
   labs(
-    title = "UMAP of NOT cells, section 33",
-    subtitle = "UMAP based on PCA-reduced expression data",
     x = "UMAP1",
     y = "UMAP2"
   )
@@ -255,7 +243,6 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = neurotransmitter)) +
   geom_point(size = 3, alpha = 0.8) +
   theme_classic(base_size = 14) +
   labs(
-    title = "UMAP of NOT cells colored by neurotransmitter type",
     x = "UMAP1",
     y = "UMAP2",
     color = "Neurotransmitter"
@@ -265,7 +252,6 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = subclass)) +
   geom_point(size = 3, alpha = 0.8) +
   theme_classic(base_size = 14) +
   labs(
-    title = "UMAP of NOT cells colored by Allen subclass",
     x = "UMAP1",
     y = "UMAP2",
     color = "Subclass"
@@ -273,11 +259,12 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = subclass)) +
 ```
 
 9. Determine the optimal number of NOT clusters
-```{r}
+```{r, fig.width=6, fig.height=4.5}
 # Evaluate different k values for k-means clustering.
 # Clustering is performed on PCA-reduced expression data.
 
-pc_use <- 1:min(15, ncol(pca_res$x))
+#pc_use <- 1:min(15, ncol(pca_res$x))
+
 pca_input <- pca_res$x[, pc_use]
 
 k_results <- data.frame()
@@ -326,10 +313,10 @@ ggplot(k_results, aes(x = k, y = total_withinss)) +
 ```
 
 10. Final k-means clustering of NOT cells
-```{r}
+```{r, fig.width=6, fig.height=4.5}
 # Select the k value with the highest silhouette score.
 # This provides a data-driven choice of cluster number.
-best_k <-2
+best_k <- 2
 
 km_final <- kmeans(
   pca_input,
@@ -344,8 +331,6 @@ ggplot(pca_df, aes(x = PC1, y = PC2, color = cluster_kmeans)) +
   geom_point(size = 3, alpha = 0.85) +
   theme_classic(base_size = 14) +
   labs(
-    title = "PCA of NOT cells with k-means clustering",
-    subtitle = paste0("k = ", best_k, ", clustering based on PC1-PC15"),
     x = pc1_lab,
     y = pc2_lab,
     color = "Cluster"
@@ -355,8 +340,6 @@ ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = cluster_kmeans)) +
   geom_point(size = 3, alpha = 0.85) +
   theme_classic(base_size = 14) +
   labs(
-    title = "UMAP of NOT cells with k-means clustering",
-    subtitle = paste0("k = ", best_k, ", clustering based on PC1-PC15"),
     x = "UMAP1",
     y = "UMAP2",
     color = "Cluster"
@@ -374,7 +357,7 @@ table(pca_df$cluster)
 ```
 
 12. Neurotransmitter composition of NOT clusters
-```{r}
+```{r, fig.width=6, fig.height=4.5}
 # Calculate neurotransmitter composition within each transcriptomic cluster.
 
 cluster_neuro <- pca_df %>%
@@ -401,7 +384,7 @@ ggplot(
 14. Association between NOT clusters and Allen subclasses
 
 14.1 Allen subclass composition of NOT clusters
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=6, fig.height=4.5}
 # Keep the top 8 most abundant Allen subclasses and group the rest as "Others".
 # This makes the stacked bar plot easier to interpret.
 
@@ -477,7 +460,7 @@ chisq.test(
 ```
 
 14.2 Standardized residual analysis
-```{r}
+```{r, fig.width=6, fig.height=4.5}
 # Standardized residuals show which subclasses are enriched or depleted
 # in each transcriptomic cluster.
 
@@ -496,11 +479,10 @@ pheatmap(
   cluster_rows = FALSE,
   cluster_cols = FALSE,
   display_numbers = TRUE,
-  main = "Allen subclass enrichment across NOT clusters"
 )
 ```
 
-15. Differential expression between NOT clusters
+15. Mean expression differences between NOT clusters
 ```{r}
 # Compare mean gene expression between the two NOT transcriptomic clusters.
 
@@ -533,8 +515,8 @@ top_diff_genes <- cluster_diff %>%
 top_diff_genes
 ```
 
-15.1 Top genes distinguishing NOT clusters
-```{r}
+15.1 Genes with the largest mean expression differences between NOT clusters
+```{r, fig.width=6, fig.height=4.5}
 ggplot(
   top_diff_genes,
   aes(
@@ -546,62 +528,80 @@ ggplot(
   coord_flip() +
   theme_classic(base_size = 14) +
   labs(
-    title = "Top genes distinguishing NOT transcriptomic clusters",
     x = "Gene",
     y = "Mean log2 expression difference\nCluster 2 - Cluster 1"
   )
 ```
 
-16. Wilcoxon marker gene analysis
+16. Wilcoxon-based differential expression analysis
 ```{r}
-# Identify statistically enriched genes for each cluster.
-# Each cluster is compared against all other NOT cells.
+# Identify statistically enriched genes for each cluster
+# Each cluster is compared against all other NOT cells
 
 marker_results <- data.frame()
 
-for (cl in levels(pca_df$cluster)) {
-  
-  cells_in <- pca_df$cluster == cl
-  
-  for (gene in colnames(expr_mat_clean)) {
-    
-    expr_in <- expr_mat_clean[cells_in, gene]
-    expr_out <- expr_mat_clean[!cells_in, gene]
-    
-    test <- wilcox.test(expr_in, expr_out)
-    
-    marker_results <- rbind(
-      marker_results,
-      data.frame(
-        cluster = cl,
-        gene = gene,
-        mean_in = mean(expr_in),
-        mean_out = mean(expr_out),
-        mean_difference = mean(expr_in) - mean(expr_out),
-        p_value = test$p.value
-      )
+cluster1_cells <- pca_df$cluster == "1"
+cluster2_cells <- pca_df$cluster == "2"
+
+for (gene in colnames(expr_mat_clean)) {
+
+  expr_cluster1 <- expr_mat_clean[cluster1_cells, gene]
+  expr_cluster2 <- expr_mat_clean[cluster2_cells, gene]
+
+  test <- wilcox.test(
+    expr_cluster1,
+    expr_cluster2
+  )
+
+  marker_results <- rbind(
+    marker_results,
+    data.frame(
+      gene = gene,
+      mean_cluster1 = mean(expr_cluster1),
+      mean_cluster2 = mean(expr_cluster2),
+      mean_difference =
+        mean(expr_cluster2) - mean(expr_cluster1),
+      p_value = test$p.value
     )
-  }
+  )
 }
 
 marker_results <- marker_results %>%
-  group_by(cluster) %>%
-  mutate(p_adj = p.adjust(p_value, method = "BH")) %>%
-  ungroup() %>%
-  arrange(cluster, p_adj, desc(abs(mean_difference)))
+  mutate(
+    p_adj = p.adjust(
+      p_value,
+      method = "BH"
+    )
+  ) %>%
+  arrange(
+    p_adj,
+    desc(abs(mean_difference))
+  )
 
-top_markers <- marker_results %>%
-  group_by(cluster) %>%
-  arrange(p_adj, desc(abs(mean_difference))) %>%
+marker_results
+
+top_cluster1_markers <- marker_results %>%
+  filter(mean_difference < 0) %>%
+  arrange(p_adj, mean_difference) %>%
   slice_head(n = 10)
 
-top_markers
+top_cluster2_markers <- marker_results %>%
+  filter(mean_difference > 0) %>%
+  arrange(p_adj, desc(mean_difference)) %>%
+  slice_head(n = 10)
+
+top_marker_genes <- unique(
+  c(
+    top_cluster1_markers$gene,
+    top_cluster2_markers$gene
+  )
+)
 ```
 
 17. Heatmap of NOT cluster marker genes
-```{r}
-# Visualize top marker genes across NOT cells.
-# Cells are annotated by transcriptomic cluster only to avoid annotation-color mismatch.
+```{r, fig.width=6, fig.height=4.5}
+# Visualize top marker genes across NOT cells
+# Cells are annotated by transcriptomic cluster only to avoid annotation-color mismatch
 
 top_marker_genes <- unique(top_markers$gene)
 
@@ -627,7 +627,6 @@ pheatmap(
   show_rownames = FALSE,
   show_colnames = TRUE,
   fontsize_col = 8,
-  main = "Top marker genes across NOT transcriptomic clusters"
 )
 ```
 
@@ -673,61 +672,7 @@ for (gene in known_genes_available) {
 }
 ```
 
-19. Random forest classification of NOT clusters
-```{r}
-# Use random forest to identify genes that best distinguish
-# the two NOT transcriptomic clusters.
-rf_x <- as.data.frame(expr_mat_clean)
-rf_y <- as.factor(pca_df$cluster)
-
-train_index <- createDataPartition(rf_y, p = 0.7, list = FALSE)
-
-x_train <- rf_x[train_index, ]
-x_test <- rf_x[-train_index, ]
-
-y_train <- rf_y[train_index]
-y_test <- rf_y[-train_index]
-
-rf_model <- randomForest(
-  x = x_train,
-  y = y_train,
-  ntree = 500,
-  importance = TRUE
-)
-
-rf_model
-
-rf_pred <- predict(rf_model, x_test)
-
-confusionMatrix(rf_pred, y_test)
-```
-
-19.1 Random forest gene importance
-```{r}
-importance_df <- as.data.frame(importance(rf_model))
-importance_df$gene <- rownames(importance_df)
-
-top_rf_genes <- importance_df %>%
-  arrange(desc(MeanDecreaseGini)) %>%
-  slice(1:20)
-
-top_rf_genes
-
-ggplot(
-  top_rf_genes,
-  aes(x = reorder(gene, MeanDecreaseGini), y = MeanDecreaseGini)
-) +
-  geom_col() +
-  coord_flip() +
-  theme_classic(base_size = 14) +
-  labs(
-    title = "Top genes distinguishing NOT clusters by random forest",
-    x = "Gene",
-    y = "Mean decrease in Gini"
-  )
-```
-
-20. Summary statistics of NOT clusters
+19. Summary statistics of NOT clusters
 ```{r}
 # Summarize the major transcriptomic and biological features
 # of each NOT cluster.
